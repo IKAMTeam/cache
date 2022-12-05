@@ -33,10 +33,10 @@ async function run(): Promise<void> {
             return;
         }
 
-        const newPrimaryKeyEnvVariable = core.getInput('override-primary-key-env-variable');
-        if (newPrimaryKeyEnvVariable !== undefined && process.env[newPrimaryKeyEnvVariable] !== '') {
-            core.info(`Primary key has been overridden to ${process.env[newPrimaryKeyEnvVariable]}, was ${primaryKey}.`);
-            primaryKey = process.env[newPrimaryKeyEnvVariable] || '';
+        const overridePrimaryKeyEnvVariable = core.getInput('override-primary-key-env-variable');
+        if (overridePrimaryKeyEnvVariable !== undefined && process.env[overridePrimaryKeyEnvVariable] !== '') {
+            core.info(`Primary key has been overridden to ${process.env[overridePrimaryKeyEnvVariable]}, was ${primaryKey}.`);
+            primaryKey = process.env[overridePrimaryKeyEnvVariable] || '';
         }
 
         if (utils.isExactKeyMatch(primaryKey, state)) {
