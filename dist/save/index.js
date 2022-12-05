@@ -47326,9 +47326,9 @@ function run() {
                 utils.logWarning(`Error retrieving key from state.`);
                 return;
             }
-            const newPrimaryKeyEnvVariable = core.getInput('new-primary-key-env-variable');
+            const newPrimaryKeyEnvVariable = core.getInput('override-primary-key-env-variable');
             if (newPrimaryKeyEnvVariable !== undefined && process.env[newPrimaryKeyEnvVariable] !== '') {
-                core.info(`Primary key have been updated to ${process.env[newPrimaryKeyEnvVariable]}, was ${primaryKey}.`);
+                core.info(`Primary key has been overridden to ${process.env[newPrimaryKeyEnvVariable]}, was ${primaryKey}.`);
                 primaryKey = process.env[newPrimaryKeyEnvVariable] || '';
             }
             if (utils.isExactKeyMatch(primaryKey, state)) {
