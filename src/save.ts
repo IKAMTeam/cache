@@ -27,10 +27,16 @@ async function run(): Promise<void> {
         const state = utils.getCacheState();
 
         // Inputs are re-evaluted before the post action, so we want the original key used for restore
-        const primaryKey = core.getState(State.CachePrimaryKey);
+        let primaryKey = core.getState(State.CachePrimaryKey);
         if (!primaryKey) {
             utils.logWarning(`Error retrieving key from state.`);
             return;
+        }
+
+        const newPrimaryKeyEnvVariable = core.getInput('new-primary-key-env-variable');
+        if (newPrimaryKeyEnvVariable !== undefined && process.env[newPrimaryKeyEnvVariable] !== '') {
+            core.info(`Primary key have been updated to ${process.env[newPrimaryKeyEnvVariable]}, was ${primaryKey}.`);
+            primaryKey = process.env[newPrimaryKeyEnvVariable] || '';
         }
 
         if (utils.isExactKeyMatch(primaryKey, state)) {
