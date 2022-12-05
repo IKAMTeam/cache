@@ -27,10 +27,16 @@ async function run(): Promise<void> {
         const state = utils.getCacheState();
 
         // Inputs are re-evaluted before the post action, so we want the original key used for restore
-        const primaryKey = core.getState(State.CachePrimaryKey);
+        let primaryKey = core.getState(State.CachePrimaryKey);
         if (!primaryKey) {
             utils.logWarning(`Error retrieving key from state.`);
             return;
+        }
+
+        const overridePrimaryKeyEnvVariable = core.getInput('override-primary-key-env-variable');
+        if (overridePrimaryKeyEnvVariable !== undefined && process.env[overridePrimaryKeyEnvVariable] !== '') {
+            core.info(`Primary key has been overridden to ${process.env[overridePrimaryKeyEnvVariable]}, was ${primaryKey}.`);
+            primaryKey = process.env[overridePrimaryKeyEnvVariable] || '';
         }
 
         if (utils.isExactKeyMatch(primaryKey, state)) {

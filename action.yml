@@ -1,5 +1,9 @@
 name: 'Cache'
-description: 'Cache artifacts like dependencies and build outputs to improve workflow execution time'
+description: |
+  Cache artifacts like dependencies and build outputs to improve workflow execution time
+
+  OneVizion Improvements:
+  - Added ability to change primary key after restore cache. This is required when primary key initially can't be generated, only after cache restore
 author: 'GitHub'
 inputs:
   path:
@@ -13,6 +17,9 @@ inputs:
     required: false
   upload-chunk-size:
     description: 'The chunk size used to split up large files during upload, in bytes'
+    required: false
+  override-primary-key-env-variable:
+    description: 'Environment variable to override primary key'
     required: false
 outputs:
   cache-hit:

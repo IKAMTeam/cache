@@ -47321,10 +47321,15 @@ function run() {
             }
             const state = utils.getCacheState();
             // Inputs are re-evaluted before the post action, so we want the original key used for restore
-            const primaryKey = core.getState(constants_1.State.CachePrimaryKey);
+            let primaryKey = core.getState(constants_1.State.CachePrimaryKey);
             if (!primaryKey) {
                 utils.logWarning(`Error retrieving key from state.`);
                 return;
+            }
+            const overridePrimaryKeyEnvVariable = core.getInput('override-primary-key-env-variable');
+            if (overridePrimaryKeyEnvVariable !== undefined && process.env[overridePrimaryKeyEnvVariable] !== '') {
+                core.info(`Primary key has been overridden to ${process.env[overridePrimaryKeyEnvVariable]}, was ${primaryKey}.`);
+                primaryKey = process.env[overridePrimaryKeyEnvVariable] || '';
             }
             if (utils.isExactKeyMatch(primaryKey, state)) {
                 core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
