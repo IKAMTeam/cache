@@ -59348,7 +59348,7 @@ exports.RefKey = "GITHUB_REF";
 
 /***/ }),
 
-/***/ 2357:
+/***/ 6589:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
 "use strict";
@@ -59386,68 +59386,79 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.restoreRun = exports.restoreOnlyRun = exports.restoreImpl = void 0;
+exports.saveRun = exports.saveOnlyRun = exports.saveImpl = void 0;
 const cache = __importStar(__nccwpck_require__(7799));
 const core = __importStar(__nccwpck_require__(2186));
 const constants_1 = __nccwpck_require__(9042);
 const stateProvider_1 = __nccwpck_require__(1527);
 const utils = __importStar(__nccwpck_require__(6850));
-function restoreImpl(stateProvider, earlyExit) {
+// Catch and log any unhandled exceptions.  These exceptions can leak out of the uploadChunk method in
+// @actions/toolkit when a failed upload closes the file descriptor causing any in-process reads to
+// throw an uncaught exception.  Instead of failing this action, just warn.
+process.on("uncaughtException", e => utils.logWarning(e.message));
+function saveImpl(stateProvider) {
     return __awaiter(this, void 0, void 0, function* () {
+        let cacheId = -1;
         try {
             if (!utils.isCacheFeatureAvailable()) {
-                core.setOutput(constants_1.Outputs.CacheHit, "false");
                 return;
             }
-            // Validate inputs, this can cause task failure
             if (!utils.isValidEvent()) {
                 utils.logWarning(`Event Validation Error: The event type ${process.env[constants_1.Events.Key]} is not supported because it's not tied to a branch or tag ref.`);
                 return;
             }
-            const primaryKey = core.getInput(constants_1.Inputs.Key, { required: true });
-            stateProvider.setState(constants_1.State.CachePrimaryKey, primaryKey);
-            const restoreKeys = utils.getInputAsArray(constants_1.Inputs.RestoreKeys);
+            // If restore has stored a primary key in state, reuse that
+            // Else re-evaluate from inputs
+            let primaryKey = stateProvider.getState(constants_1.State.CachePrimaryKey) ||
+                core.getInput(constants_1.Inputs.Key);
+            if (!primaryKey) {
+                utils.logWarning(`Key is not specified.`);
+                return;
+            }
+            const overridePrimaryKeyEnvVariable = core.getInput('override-primary-key-env-variable');
+            if (overridePrimaryKeyEnvVariable !== undefined
+                && process.env[overridePrimaryKeyEnvVariable] !== undefined
+                && process.env[overridePrimaryKeyEnvVariable] !== '') {
+                core.info(`Primary key has been overridden to ${process.env[overridePrimaryKeyEnvVariable]}, was ${primaryKey}.`);
+                primaryKey = process.env[overridePrimaryKeyEnvVariable] || '';
+            }
+            // If matched restore key is same as primary key, then do not save cache
+            // NO-OP in case of SaveOnly action
+            const restoredKey = stateProvider.getCacheState();
+            if (utils.isExactKeyMatch(primaryKey, restoredKey)) {
+                core.info(`Cache hit occurred on the primary key ${primaryKey}, not saving cache.`);
+                return;
+            }
             const cachePaths = utils.getInputAsArray(constants_1.Inputs.Path, {
                 required: true
             });
             const enableCrossOsArchive = utils.getInputAsBool(constants_1.Inputs.EnableCrossOsArchive);
-            const failOnCacheMiss = utils.getInputAsBool(constants_1.Inputs.FailOnCacheMiss);
-            const lookupOnly = utils.getInputAsBool(constants_1.Inputs.LookupOnly);
-            const cacheKey = yield cache.restoreCache(cachePaths, primaryKey, restoreKeys, { lookupOnly: lookupOnly }, enableCrossOsArchive);
-            if (!cacheKey) {
-                if (failOnCacheMiss) {
-                    throw new Error(`Failed to restore cache entry. Exiting as fail-on-cache-miss is set. Input key: ${primaryKey}`);
-                }
-                core.info(`Cache not found for input keys: ${[
-                    primaryKey,
-                    ...restoreKeys
-                ].join(", ")}`);
-                return;
+            cacheId = yield cache.saveCache(cachePaths, primaryKey, { uploadChunkSize: utils.getInputAsInt(constants_1.Inputs.UploadChunkSize) }, enableCrossOsArchive);
+            if (cacheId != -1) {
+                core.info(`Cache saved with key: ${primaryKey}`);
             }
-            // Store the matched cache key in states
-            stateProvider.setState(constants_1.State.CacheMatchedKey, cacheKey);
-            const isExactKeyMatch = utils.isExactKeyMatch(core.getInput(constants_1.Inputs.Key, { required: true }), cacheKey);
-            core.setOutput(constants_1.Outputs.CacheHit, isExactKeyMatch.toString());
-            if (lookupOnly) {
-                core.info(`Cache found and can be restored from key: ${cacheKey}`);
-            }
-            else {
-                core.info(`Cache restored from key: ${cacheKey}`);
-            }
-            return cacheKey;
         }
         catch (error) {
-            core.setFailed(error.message);
+            utils.logWarning(error.message);
+        }
+        return cacheId;
+    });
+}
+exports.saveImpl = saveImpl;
+function saveOnlyRun(earlyExit) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            const cacheId = yield saveImpl(new stateProvider_1.NullStateProvider());
+            if (cacheId === -1) {
+                core.warning(`Cache save failed.`);
+            }
+        }
+        catch (err) {
+            console.error(err);
             if (earlyExit) {
                 process.exit(1);
             }
         }
-    });
-}
-exports.restoreImpl = restoreImpl;
-function run(stateProvider, earlyExit) {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield restoreImpl(stateProvider, earlyExit);
         // node will stay alive if any promises are not resolved,
         // which is a possibility if HTTP requests are dangling
         // due to retries or timeouts. We know that if we got here
@@ -59458,18 +59469,29 @@ function run(stateProvider, earlyExit) {
         }
     });
 }
-function restoreOnlyRun(earlyExit) {
+exports.saveOnlyRun = saveOnlyRun;
+function saveRun(earlyExit) {
     return __awaiter(this, void 0, void 0, function* () {
-        yield run(new stateProvider_1.NullStateProvider(), earlyExit);
+        try {
+            yield saveImpl(new stateProvider_1.StateProvider());
+        }
+        catch (err) {
+            console.error(err);
+            if (earlyExit) {
+                process.exit(1);
+            }
+        }
+        // node will stay alive if any promises are not resolved,
+        // which is a possibility if HTTP requests are dangling
+        // due to retries or timeouts. We know that if we got here
+        // that all promises that we care about have successfully
+        // resolved, so simply exit with success.
+        if (earlyExit) {
+            process.exit(0);
+        }
     });
 }
-exports.restoreOnlyRun = restoreOnlyRun;
-function restoreRun(earlyExit) {
-    return __awaiter(this, void 0, void 0, function* () {
-        yield run(new stateProvider_1.StateProvider(), earlyExit);
-    });
-}
-exports.restoreRun = restoreRun;
+exports.saveRun = saveRun;
 
 
 /***/ }),
@@ -59864,8 +59886,8 @@ var __webpack_exports__ = {};
 var exports = __webpack_exports__;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-const restoreImpl_1 = __nccwpck_require__(2357);
-(0, restoreImpl_1.restoreRun)(true);
+const saveImpl_1 = __nccwpck_require__(6589);
+(0, saveImpl_1.saveOnlyRun)(true);
 
 })();
 
