@@ -44,7 +44,10 @@ export async function saveImpl(
         }
 
         const overridePrimaryKeyEnvVariable = core.getInput('override-primary-key-env-variable');
-        if (overridePrimaryKeyEnvVariable !== undefined && process.env[overridePrimaryKeyEnvVariable] !== '') {
+        if (overridePrimaryKeyEnvVariable !== undefined
+            && process.env[overridePrimaryKeyEnvVariable] !== undefined
+            && process.env[overridePrimaryKeyEnvVariable] !== '') {
+
             core.info(`Primary key has been overridden to ${process.env[overridePrimaryKeyEnvVariable]}, was ${primaryKey}.`);
             primaryKey = process.env[overridePrimaryKeyEnvVariable] || '';
         }
